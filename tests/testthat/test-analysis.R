@@ -112,7 +112,7 @@ test_that("ABC rejection logic: accepted draws concentrate near the true paramet
 
 test_that("shipped CSVs have equal numbers of rows", {
   # EXPECTED FAILURE: time.csv=201, x.csv=198, y.csv=204 rows, so analysis.R's
-  # data.frame() call fails. This is a real bug in the repo's data (review.md B1).
+  # data.frame() call fails. This is a real bug in the repo's data (review.md C1).
   root <- project_root()
   n <- sapply(c("time.csv", "x.csv", "y.csv"),
               function(f) nrow(read.csv(file.path(root, f), header = FALSE)))
