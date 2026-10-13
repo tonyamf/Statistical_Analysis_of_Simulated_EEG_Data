@@ -1,0 +1,16 @@
+name: tests
+on:
+  push:
+  pull_request:
+jobs:
+  testthat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Install packages used by the tested functions
+        run: Rscript -e 'install.packages(c("testthat", "ggplot2"))'
+      - name: Run tests
+        run: Rscript tests/testthat.R
