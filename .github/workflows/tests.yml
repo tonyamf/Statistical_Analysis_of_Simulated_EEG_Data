@@ -11,6 +11,6 @@ jobs:
         with:
           use-public-rspm: true
       - name: Install packages used by the tested functions
-        run: Rscript -e 'install.packages(c("testthat", "ggplot2"))'
+        run: Rscript -e 'install.packages(c("testthat", "ggplot2", "dplyr", "tidyr"))'
       - name: Run tests
         run: Rscript tests/testthat.R

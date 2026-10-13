@@ -44,14 +44,14 @@ test_that("AIC and BIC follow their definitions and BIC penalises more for n > 7
   expect_gt(fit$bic - fit$aic, 0)   # k*(log(60) - 2) > 0
 })
 
-test_that("an irrelevant extra column lowers RSS but is penalised by BIC", {
+test_that("an irrelevant extra column lowers RSS but BIC prefers the smaller model", {
   d <- make_design(n = 80)
   set.seed(5)
   y <- d$X %*% c(1, 2, 3) + rnorm(80)
   small <- analyze_regression_model(d$X, y, "small")
   big <- analyze_regression_model(cbind(d$X, rnorm(80)), y, "big")
   expect_lte(big$rss, small$rss)          # extra column never raises RSS
-  expect_lt(small$bic, big$bic + 3)       # and BIC does not reward it by much
+  expect_lt(small$bic, big$bic)           # fixed seeds, so deterministic
 })
 
 test_that("a singular design matrix stops with a clear message", {
@@ -119,4 +119,39 @@ test_that("shipped CSVs have equal numbers of rows", {
   # expect_failure() passes while the bug exists and starts failing once the
   # data are fixed, which is the cue to turn this into a plain expect_equal().
   expect_failure(expect_equal(length(unique(n)), 1))
+})
+
+test_that("ABC accepted draws are narrower than the OLS standard error (under-dispersed posterior)", {
+  # Characterisation of analysis.R section 6: tolerance 0.5 on |RSS_sim - RSS_obs|
+  # accepts only a small ellipse around the OLS estimate, so the "posterior" spread
+  # is smaller than the OLS standard error. Documented in review.md (A3).
+  set.seed(8)
+  n <- 100
+  x <- rnorm(n); X <- cbind(1, x)
+  y <- X %*% c(1, 2) + rnorm(n, sd = 1)
+  fit <- analyze_regression_model(X, y, "toy")
+  se <- sqrt(diag(sum(fit$residuals^2) / (n - 2) * solve(t(X) %*% X)))
+  b <- fit$coefficients
+  sims <- 20000
+  p1 <- runif(sims, b[1] - 3 * se[1], b[1] + 3 * se[1])
+  p2 <- runif(sims, b[2] - 3 * se[2], b[2] + 3 * se[2])
+  rss_sim <- vapply(seq_len(sims), function(i) sum((y - X %*% c(p1[i], p2[i]))^2), 0)
+  keep <- abs(rss_sim - fit$rss) < 0.5
+  expect_gt(sum(keep), 50)
+  expect_lt(sd(p2[keep]), se[2])
+})
+
+test_that("time labels in df_long stay aligned with their rows", {
+  # EXPECTED FAILURE (bug A1 in review.md): analysis.R lines 85-88 build df_long with
+  # pivot_longer() (row-interleaved) and then rep(df$time, 5) (block-repeated), so
+  # the time column does not match the values. The two lines below are copied from
+  # analysis.R because the script cannot be sourced without running everything.
+  skip_if_not_installed("dplyr"); skip_if_not_installed("tidyr")
+  library(dplyr); library(tidyr)
+  df <- data.frame(time = c(0, 0.002, 0.004), x1 = c(1, 2, 3), y = c(10, 20, 30))
+  df_long <- df %>% select(-time) %>%
+    pivot_longer(everything(), names_to = "signal_type", values_to = "value") %>%
+    mutate(time = rep(df$time, ncol(df) - 1))
+  # x1 value 2 belongs to time 0.002; the script gives it time 0.004
+  expect_failure(expect_equal(df_long$time[df_long$value == 2], 0.002))
 })
